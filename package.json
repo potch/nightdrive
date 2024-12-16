@@ -1,0 +1,16 @@
+{
+  "name": "nightdrive",
+  "version": "1.0.0",
+  "description": "the night drive",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "potch",
+  "license": "ISC",
+  "devDependencies": {
+    "@potch/tinyserve": "^1.3.0",
+    "onchange": "^7.1.0"
+  }
+}
