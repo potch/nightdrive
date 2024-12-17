@@ -15,13 +15,13 @@ import {
   norm,
   sub,
 } from "./geo.js";
+import buildWorld from "./world.js";
 
 const bounds = new Rect([-8192, -8192], [16384, 16384]);
-const q = new Quadtree(bounds, { getPos: (o) => o.pos });
+let debug;
 
-const atZ = ([x, y], z) => [x, y, z];
-
-let playerPos = [-2048 - 25, 0];
+let playerPos = [-25, 0];
+// playerPos = [0, -400];
 let playerAngle = 0;
 let playerTurn = 0;
 let playerVel = 0;
@@ -29,6 +29,8 @@ let gas = 0;
 let brake = 0;
 let playerWheel = 0;
 let facing = [0, -1];
+
+const clamp = (a, b, n) => (n < a ? a : n > b ? b : n);
 
 const WIDTH = 640;
 const HEIGHT = 480;
@@ -40,12 +42,19 @@ const focal = 768;
 const focalNear = -32;
 const fovW = 45;
 const fovH = fovW / ASPECT;
-const camHeight = 10;
+const camHeight = 12;
+const overscan = 1.1;
 const toScreenSpace = ([x, y, z]) => {
   const scale = perspective / (perspective + y - focalNear);
   return [
-    proj(-fovW, fovW, -WIDTH, WIDTH, x * scale),
-    proj(-fovH, fovH, HEIGHT, -HEIGHT, (z - camHeight) * scale),
+    proj(-fovW, fovW, -WIDTH * overscan, WIDTH * overscan, x * scale),
+    proj(
+      -fovH,
+      fovH,
+      HEIGHT * overscan,
+      -HEIGHT * overscan,
+      (z - camHeight) * scale
+    ),
   ];
 };
 
@@ -56,206 +65,98 @@ const frust = [
   [focal, -fovW / (perspective / (perspective + focal - focalNear)) / 2],
 ];
 
-const count = 40000;
-const poles = [];
-for (let i = 0; i < count; i++) {
-  let pos;
-  do {
-    pos = [Math.random() * 16384 - 8192, Math.random() * 16384 - 8192];
-  } while (
-    Math.abs(Math.hypot(...pos) - 2048) < 60 ||
-    Math.abs(Math.hypot(...pos) - 4096) < 60
-  );
-  const obj = {
-    pos,
-    height: Math.random() * 100 + 10,
-    lx: Math.random() * 10 - 5,
-    lz: Math.random() * 10 - 5,
-  };
-  obj.model = [
-    [-2, -2, 0],
-    [2, -2, 0],
-    [2, 2, 0],
-    [-2, 2, 0],
-    [-2, -2, 0],
-    [0, 0, 0],
-    [obj.lx, obj.lz, obj.height],
-  ];
-  poles.push(obj);
-  q.insert(obj);
-}
+const highbeams = [
+  [-25, 0],
+  [-300, focal],
+  [300, focal],
+  [25, 0],
+];
 
-// const size = 64;
-// const size2 = size * 0.25;
-// for (let i = -4096; i < 4096; i += size) {
-//   for (let j = -4096; j < 4096; j += size) {
-//     const o = {
-//       pos: [i + size / 2, j + size / 2],
-//       model: [
-//         [-size2, -size2, 0],
-//         [-size2, size2, 0],
-//         [size2, size2, 0],
-//         [size2, -size2, 0],
-//         [-size2, -size2, 0],
-//       ],
-//     };
-//     q.insert(o);
-//   }
-// }
+const lowbeams = [
+  [-50, 0],
+  [-350, focal],
+  [350, focal],
+  [50, 0],
+];
 
-let roadRad = 2048;
-let roadDash = 400;
-let roadWidth = 50;
-for (let i = 0; i < roadDash; i += 1) {
-  const a = (i / roadDash) * (Math.PI * 2);
-  const rot = [Math.cos(-a), Math.sin(-a)];
-  const z = 0;
-  if (i % 2) {
-    q.insert({
-      pos: [roadRad * Math.cos(a), roadRad * Math.sin(a)],
-      fill: [100, 75, 0],
-      model: [
-        [-5, 1, z],
-        [5, 1, z],
-        [5, -1, z],
-        [-5, -1, z],
-        [-5, 1, z],
-      ].map(([x, y, z]) => [...mul([x, y], rot), z]),
-    });
-  }
-  const il = (2 * Math.PI * (roadRad - roadWidth)) / roadDash / 2;
-  const ol = (2 * Math.PI * (roadRad + roadWidth)) / roadDash / 2;
-  q.insert({
-    pos: [
-      (roadRad - roadWidth) * Math.cos(a),
-      (roadRad - roadWidth) * Math.sin(a),
-    ],
-    fill: [20, 20, 20],
-    model: [
-      [-il, 0, z],
-      [il, 0, z],
-      [il - 0.5, 0, z + 7],
-      [-il + 0.5, 0, z + 7],
-      [-il, 0, z],
-    ].map(([x, y, z]) => [...mul([x, y], rot), z]),
-  });
-  q.insert({
-    pos: [
-      (roadRad + roadWidth) * Math.cos(a),
-      (roadRad + roadWidth) * Math.sin(a),
-    ],
-    model: [
-      [-ol, 0, z],
-      [ol, 0, z],
-    ].map(([x, y, z]) => [...mul([x, y], rot), z]),
-  });
-}
-
-roadRad = 4086;
-roadDash = 800;
-roadWidth = 50;
-for (let i = 0; i < roadDash; i += 1) {
-  const a = (i / roadDash) * (Math.PI * 2);
-  const rot = [Math.cos(-a), Math.sin(-a)];
-  const z = 0;
-  if (i % 2) {
-    q.insert({
-      pos: [roadRad * Math.cos(a), roadRad * Math.sin(a)],
-      fill: [100, 75, 0],
-      model: [
-        [-5, 1, z],
-        [5, 1, z],
-        [5, -1, z],
-        [-5, -1, z],
-        [-5, 1, z],
-      ].map(([x, y, z]) => [...mul([x, y], rot), z]),
-    });
-  }
-  const il = (2 * Math.PI * (roadRad - roadWidth)) / roadDash / 2;
-  const ol = (2 * Math.PI * (roadRad + roadWidth)) / roadDash / 2;
-  q.insert({
-    pos: [
-      (roadRad - roadWidth) * Math.cos(a),
-      (roadRad - roadWidth) * Math.sin(a),
-    ],
-    fill: [20, 20, 20],
-    model: [
-      [-il, 0, z],
-      [il, 0, z],
-      [il - 0.5, 0, z + 7],
-      [-il + 0.5, 0, z + 7],
-      [-il, 0, z],
-    ].map(([x, y, z]) => [...mul([x, y], rot), z]),
-  });
-  q.insert({
-    pos: [
-      (roadRad + roadWidth) * Math.cos(a),
-      (roadRad + roadWidth) * Math.sin(a),
-    ],
-    model: [
-      [-ol, 0, z],
-      [ol, 0, z],
-    ].map(([x, y, z]) => [...mul([x, y], rot), z]),
-  });
-}
-
-q.insert({
-  pos: [0, 0],
-  model: [
-    [-2, -30, 0],
-    [-2, -30, 20],
-    [-2, 30, 20],
-    [-2, 30, 0],
-    [2, 30, 0],
-    [2, 30, 20],
-    [2, -30, 20],
-    [2, -30, 0],
-  ],
-});
-
-const start = () => {
+const start = async () => {
   const canvas = document.createElement("canvas");
   Object.assign(canvas, { width: WIDTH, height: HEIGHT });
-  const debug = document.createElement("pre");
+  debug = document.createElement("pre");
+  debug.id = "debug";
   document.body.append(canvas, debug);
   const ctx = canvas.getContext("2d");
 
+  let stime = Date.now();
+  const q = await buildWorld(bounds);
+  console.log("built world in", Date.now() - stime, "ms");
+
+  const id = new ImageData(WIDTH, HEIGHT);
+  id.data.fill(0);
+
   let avg = 0;
+  let lastFrame;
   const frame = () => {
+    if (!lastFrame) lastFrame = Date.now();
     const now = Date.now();
+    const t = now / 1000;
+    const dt = (now - lastFrame) / 1000;
+    lastFrame = now;
 
     // movement
-    playerVel *= 0.99;
-    playerTurn *= 0.9;
     if (playerWheel) {
-      playerTurn = Math.min(Math.max(-2, playerTurn + playerWheel), 2);
+      playerTurn = Math.min(Math.max(-1, playerTurn + playerWheel), 1);
+    } else {
+      playerTurn *= 0.9;
     }
     if (gas) {
-      playerVel = Math.max(-2, Math.min(playerVel + gas, 4));
+      playerVel = Math.max(-1, Math.min(playerVel + gas * dt, 2));
+    } else {
+      playerVel *= 0.99;
     }
 
-    playerAngle += playerTurn * playerVel;
+    const fwd = playerVel * dt * 100;
+
+    playerAngle += playerTurn * fwd;
 
     facing = [
       -Math.sin((playerAngle / 180) * Math.PI),
       Math.cos((playerAngle / 180) * Math.PI),
     ];
-    playerPos = add(playerPos, scale(facing, playerVel));
+    playerPos = add(playerPos, scale(facing, fwd));
 
     // drawing
     const toPlayerSpace = affine(facing, playerPos);
     const fromPlayerSpace = invertAffine(toPlayerSpace);
     const f = frust.map((p) => affineMul(p, toPlayerSpace));
 
-    ctx.fillStyle = "#010008";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    for (let i = 0; i < id.data.length; i += 4) {
+      id.data[i] = 4;
+      id.data[i + 1] = 2;
+      id.data[i + 2] = 16;
+      id.data[i + 3] = 255;
+    }
 
-    ctx.fillStyle = "#000";
-    ctx.strokeStyle = "#888";
+    // ctx.fillStyle = "#000";
+    // ctx.strokeStyle = "#888";
 
-    ctx.fillRect(0, canvas.height / 2, canvas.width, canvas.height);
-    ctx.save();
-    ctx.translate(WIDTH_2, HEIGHT_2);
+    // ctx.fillRect(0, canvas.height / 2, canvas.width, canvas.height);
+
+    // ctx.fillStyle = "#c0c0c0";
+    // const moon = proj(
+    //   0,
+    //   360,
+    //   WIDTH * 2,
+    //   -WIDTH,
+    //   ((playerAngle % 360) + 360) % 360
+    // );
+    // ctx.beginPath();
+    // ctx.arc(moon, HEIGHT * 0.4, WIDTH / 20, 0, 6.28);
+    // ctx.closePath();
+    // ctx.fill();
+
+    // ctx.save();
+    // ctx.translate(WIDTH_2, HEIGHT_2);
 
     const fbox = bbox(f);
     // plot(f, true);
@@ -280,24 +181,45 @@ const start = () => {
         const x = sp[1];
         const z = sp[0];
         const d = Math.hypot(x, z);
+        if (d > focal) return;
+
         const shape = o.model.map((p) => {
           const sp = add(mul(p, facing), [x, z]);
-          return toScreenSpace([sp[0], sp[1], p[2]]);
+          return toScreenSpace([sp[0], sp[1], o.anim ? o.anim(t) : p[2]]);
         });
-        const a =
+        let a = clamp(
+          0,
+          1,
           z < 10
-            ? proj(focalNear, -10, 0, 1, z)
-            : proj(focal * 0.75, focal, 1, 0, z);
-        ctx.strokeStyle = `rgba(128, 128, 128, ${a})`;
-        if (o.fill) {
-          const [r, g, b] = o.fill;
-          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
-          plot(shape, false, true);
-        } else {
-          plot(shape, false);
+            ? proj(focalNear, -10, 0, 1, d)
+            : proj(focal * 0.5, focal, 1, 0, d)
+        );
+
+        let fill = o.fill;
+        const headlight = clamp(
+          0,
+          1,
+          proj(fovW * 0.5, fovW * 0.6, 1, 0, Math.abs(x) - 0.4 * z)
+        );
+        if (fill)
+          fill = [
+            fill[0] * (1 + 2 * headlight),
+            fill[1] * (1 + 1.8 * headlight),
+            fill[2] * (1 + 1.5 * headlight),
+          ];
+
+        // ctx.strokeStyle = `rgba(128, 128, 128)`;
+        if (fill) {
+          const [r, g, b] = fill;
+          // ctx.fillStyle = "rgb(" + r * a |0+ "," + g * a + "," + b * a + ")";
+          plot(id, shape, [(r * a) | 0, (g * a) | 0, (b * a) | 0]);
         }
       });
-    ctx.restore();
+    // ctx.restore();
+    // console.log(id);
+    ctx.putImageData(id, 0, 0);
+    // throw "done";
+    // setTimeout(frame, 16);
     requestAnimationFrame(frame);
     avg = avg * 0.99 + (Date.now() - now) * 0.01;
     debug.innerText =
@@ -313,12 +235,27 @@ const start = () => {
       playerVel.toFixed(2);
   };
 
-  const plot = (pts, close = false, fill = false) => {
-    ctx.beginPath();
-    pts.forEach((p) => ctx.lineTo(...p));
-    close && ctx.closePath();
-    fill && ctx.fill();
-    ctx.stroke();
+  const plot = (id, pts, fill) => {
+    const box = bbox(pts);
+    if (box[1][0] < -WIDTH_2) return;
+    if (box[1][1] < -HEIGHT_2) return;
+    if (box[0][0] > WIDTH_2) return;
+    if (box[0][1] > HEIGHT_2) return;
+
+    for (let y = box[0][1] | 0; y <= box[1][1] + 1; y += 1) {
+      for (let x = box[0][0] | 0; x <= box[1][0] + 1; x += 1) {
+        const px = (x + WIDTH_2) | 0;
+        const py = (y + HEIGHT_2) | 0;
+        if (px < 0 || py < 0 || px >= WIDTH || py >= HEIGHT) continue;
+        if (pointInPolygon([x, y], pts)) {
+          const idx = (py * WIDTH + px) * 4;
+          id.data[idx] = fill[0];
+          id.data[idx + 1] = fill[1];
+          id.data[idx + 2] = fill[2];
+          id.data[idx + 3] = 255;
+        }
+      }
+    }
   };
 
   frame();
@@ -326,10 +263,10 @@ const start = () => {
 
 document.body.addEventListener("keydown", (e) => {
   if (e.key === "ArrowUp") {
-    gas = 0.075;
+    gas = 1;
   }
   if (e.key === "ArrowDown") {
-    gas = -0.1;
+    gas = -2;
   }
   if (e.key === "ArrowRight") {
     playerWheel = 0.01;
@@ -347,4 +284,4 @@ document.body.addEventListener("keyup", (e) => {
   }
 });
 
-start();
+start().catch((e) => console.error(e));

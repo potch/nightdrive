@@ -81,6 +81,12 @@ export class Rect {
     ];
   }
 
+  random() {
+    const [x, y] = this.tl;
+    const [w, h] = this.wh;
+    return [Math.random() * w + x, Math.random() * h + y];
+  }
+
   static tlbr(tl, br) {
     return new Rect(tl, sub(br, tl));
   }
