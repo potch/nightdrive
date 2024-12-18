@@ -18,7 +18,7 @@ export default async function buildWorld(bounds) {
 
   await breathe("trees");
 
-  const count = 100000;
+  const count = 50000;
   for (let i = 0; i < count; i++) {
     let pos;
     let tries = 0;
@@ -227,7 +227,7 @@ export default async function buildWorld(bounds) {
 
   await breathe("roads");
 
-  const roadL = 400;
+  const roadL = 200;
   for (let i = 0; i < roadL; i++) {
     const pr = (i) => proj(0, roadL, -50, 8192 - 60, i);
     const p = pr(i);
@@ -236,7 +236,18 @@ export default async function buildWorld(bounds) {
     const l = (pr(roadL) - pr(0)) / roadL / 2 + 1;
     const rot = [1, 0];
     const z = 0;
-    if (i % 2) {
+    q.insert({
+      pos: [0, p],
+      fill: [8, 8, 8],
+      model: [
+        [-l, -40, -1],
+        [-l, 40, -1],
+        [l, 40, -1],
+        [l, -40, -1],
+        [-l, -40, -1],
+      ],
+    });
+    if (true) {
       q.insert({
         pos: [0, p],
         fill: [100, 75, 0],

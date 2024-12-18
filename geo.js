@@ -2,7 +2,10 @@ export const vec = (x, y) => [x, y];
 export const add = (a, b) => [a[0] + b[0], a[1] + b[1]];
 export const sub = (a, b) => [a[0] - b[0], a[1] - b[1]];
 export const scale = ([a, b], s, t = s) => [a * s, b * t];
-export const mul = ([a, b], [c, d]) => [a * c - b * d, a * d + b * c];
+export const mul = (a, b) => [
+  a[0] * b[0] - a[1] * b[1],
+  a[0] * b[1] + a[1] * b[0],
+];
 export const norm = (p) => scale(p, 1 / Math.hypot(...p));
 
 export const ilerp = (a, b, n) => (n - a) / (b - a);
@@ -152,11 +155,15 @@ export class Quadtree {
   }
 }
 
-export const pointInPolygon = ([x, y], polygon) => {
+export const pointInPolygon = (p, polygon) => {
+  const x = p[0];
+  const y = p[1];
   let inside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const [xi, yi] = polygon[i];
-    const [xj, yj] = polygon[j];
+    const xi = polygon[i][0];
+    const yi = polygon[i][1];
+    const xj = polygon[j][0];
+    const yj = polygon[j][1];
 
     const intersect =
       yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
