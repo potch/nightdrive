@@ -15,6 +15,7 @@ import {
   norm,
   sub,
 } from "./geo.js";
+import { bstNode, bstToArray, bstInsert } from "./bstree.js";
 import buildWorld from "./world.js";
 
 const bounds = new Rect([-8192, -8192], [16384, 16384]);
@@ -172,16 +173,35 @@ const start = async () => {
 
     const objs = q.query(search);
 
-    let toDraw = [];
-
+    let toDraw = null;
     for (let i = 0; i < objs.length; i++) {
       const o = objs[i];
       if (pointInPolygon(o.pos, f)) {
-        toDraw.push([affineMul(o.pos, fromPlayerSpace), o]);
+        let center = [0, 0];
+        if (o.model) {
+          if (o.center) {
+            center = o.center;
+          } else {
+            for (let i = 0; i < o.model.length; i++) {
+              center = add(center, [
+                o.model[i][0] / o.model.length,
+                o.model[i][1] / o.model.length,
+              ]);
+            }
+            o.center = center;
+          }
+        }
+        const drawP = affineMul(sub(o.pos, center), fromPlayerSpace);
+        const p = affineMul(o.pos, fromPlayerSpace);
+        if (toDraw) {
+          bstInsert(toDraw, -drawP[0], [p, o]);
+        } else {
+          toDraw = bstNode(-drawP[0], [p, o]);
+        }
       }
     }
 
-    toDraw.sort((a, b) => b[0][0] - a[0][0]);
+    toDraw = bstToArray(toDraw);
 
     for (let i = 0; i < toDraw.length; i++) {
       const sp = toDraw[i][0];
@@ -224,7 +244,7 @@ const start = async () => {
     ctx.putImageData(id, 0, 0);
 
     requestAnimationFrame(frame);
-    avg = avg * 0.99 + (Date.now() - now) * 0.01;
+    avg = avg * 0.999 + (Date.now() - now) * 0.001;
     debug.innerText =
       Date.now() -
       now +

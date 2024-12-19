@@ -18,7 +18,7 @@ export default async function buildWorld(bounds) {
 
   await breathe("trees");
 
-  const count = 50000;
+  const count = 100000;
   for (let i = 0; i < count; i++) {
     let pos;
     let tries = 0;
@@ -41,7 +41,6 @@ export default async function buildWorld(bounds) {
     const width = 8;
     q.insert({
       pos,
-      height,
       lx,
       lz,
       fill: [16, 8, 0],
@@ -51,12 +50,10 @@ export default async function buildWorld(bounds) {
         [2, 2, 0],
         [2, 2, height],
         [-2, -2, height],
-        [-2, -2, 0],
       ].map(([x, y, z]) => [...mul([x, y], rot), z]),
     });
     q.insert({
       pos,
-      height,
       lx,
       lz,
       fill: [0, 24, 12],
@@ -65,12 +62,10 @@ export default async function buildWorld(bounds) {
         [-width - 2, -width + 2, height / 2],
         [width - 2, width + 2, height / 2],
         [0, 0, height * 1.5],
-        [-width - 2, -width + 2, height / 2],
       ].map(([x, y, z]) => [...mul([x, y], rot), z]),
     });
     q.insert({
       pos,
-      height,
       lx,
       lz,
       fill: [0, 18, 12],
@@ -80,7 +75,6 @@ export default async function buildWorld(bounds) {
         [-width + 2, -width - 2, height / 2],
         [width + 2, width - 2, height / 2],
         [0, 0, height * 1.5],
-        [-width + 2, -width - 2, height / 2],
       ].map(([x, y, z]) => [...mul([x, y], rot), z]),
     });
     if (i % 5000 === 0) {
@@ -129,7 +123,6 @@ export default async function buildWorld(bounds) {
           [5, 1, z],
           [5, -1, z],
           [-5, -1, z],
-          [-5, 1, z],
         ].map(([x, y, z]) => [...mul([x, y], rot), z]),
       });
     }
@@ -147,7 +140,6 @@ export default async function buildWorld(bounds) {
         [il, 0, z],
         [il - 0.5, 0, z + 7],
         [-il + 0.5, 0, z + 7],
-        [-il, 0, z],
       ].map(([x, y, z]) => [...mul([x, y], rot), z]),
     });
     q.insert({
@@ -161,7 +153,6 @@ export default async function buildWorld(bounds) {
         [-ol, -1, z],
         [ol, -1, z],
         [ol, 1, z],
-        [-ol, 1, z],
         [-ol, 1, z],
       ].map(([x, y, z]) => [...mul([x, y], rot), z]),
     });
@@ -187,7 +178,6 @@ export default async function buildWorld(bounds) {
           [5, 1, z],
           [5, -1, z],
           [-5, -1, z],
-          [-5, 1, z],
         ].map(([x, y, z]) => [...mul([x, y], rot), z]),
       });
     }
@@ -205,7 +195,6 @@ export default async function buildWorld(bounds) {
         [il, 0, z],
         [il - 0.5, 0, z + 7],
         [-il + 0.5, 0, z + 7],
-        [-il, 0, z],
       ].map(([x, y, z]) => [...mul([x, y], rot), z]),
     });
     q.insert({
@@ -219,7 +208,6 @@ export default async function buildWorld(bounds) {
         [-ol, -1, z],
         [ol, -1, z],
         [ol, 1, z],
-        [-ol, 1, z],
         [-ol, 1, z],
       ].map(([x, y, z]) => [...mul([x, y], rot), z]),
     });
@@ -257,7 +245,6 @@ export default async function buildWorld(bounds) {
           [5, 1, z],
           [5, -1, z],
           [-5, -1, z],
-          [-5, 1, z],
         ].map(([x, y, z]) => [...mul([x, y], rot), z]),
       });
     }
@@ -270,7 +257,6 @@ export default async function buildWorld(bounds) {
         [l, -1, z],
         [l, 1, z],
         [-l, 1, z],
-        [-l, -1, z],
       ].map(([x, y, z]) => [...mul([x, y], rot), z]),
     });
     q.insert({
@@ -282,7 +268,6 @@ export default async function buildWorld(bounds) {
         [l, -1, z],
         [l, 1, z],
         [-l, 1, z],
-        [-l, -1, z],
       ].map(([x, y, z]) => [...mul([x, y], rot), z]),
     });
   }
