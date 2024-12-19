@@ -26,24 +26,23 @@ let playerAngle = 0;
 let playerTurn = 0;
 let playerVel = 0;
 let gas = 0;
-let brake = 0;
 let playerWheel = 0;
 let facing = [0, -1];
 
 const clamp = (a, b, n) => (n < a ? a : n > b ? b : n);
 
 const WIDTH = 640;
-const HEIGHT = 480;
+const HEIGHT = 400;
 const ASPECT = WIDTH / HEIGHT;
 const WIDTH_2 = WIDTH / 2;
 const HEIGHT_2 = HEIGHT / 2;
 const perspective = 30;
-const focal = 512;
+const focal = 1024;
 const focalNear = 0;
 const fovW = 45;
 const fovH = fovW / ASPECT;
 const camHeight = 12;
-const overscan = 1.1;
+const overscan = 1.5;
 
 let maxScale = 0;
 const toScreenSpace = ([x, y, z]) => {
@@ -57,7 +56,6 @@ const toScreenSpace = ([x, y, z]) => {
     console.log(x, y, z, focalNear, perspective, trueY, scale);
     throw "oh no";
   }
-  // if (scale < 0.001) scale = 0.001;
   return [
     proj(-fovW, fovW, -WIDTH * overscan, WIDTH * overscan, x * scale),
     proj(
@@ -115,6 +113,7 @@ const start = async () => {
       50 * Math.sin((i / 16) * 6.28),
       50 * Math.cos((i / 16) * 6.28),
     ]);
+
   const frame = () => {
     if (!lastFrame) lastFrame = Date.now();
     const now = Date.now();
@@ -129,7 +128,7 @@ const start = async () => {
       playerTurn *= 0.9;
     }
     if (gas) {
-      playerVel = Math.max(-1, Math.min(playerVel + gas * dt, 2));
+      playerVel = Math.max(-1, Math.min(playerVel + gas * dt, 4));
     } else {
       playerVel *= 0.99;
     }
@@ -159,21 +158,13 @@ const start = async () => {
     const moonX = proj(
       0,
       360,
-      WIDTH * 2,
-      -WIDTH,
+      WIDTH * 3,
+      -WIDTH * 2,
       ((playerAngle % 360) + 360) % 360
     );
     const moonPoly = moon.map((p) => add(p, [moonX, -HEIGHT * 0.15]));
 
-    plot(id, moonPoly, [195, 195, 192]);
-
-    // ctx.beginPath();
-    // ctx.arc(moon, HEIGHT * 0.4, WIDTH / 20, 0, 6.28);
-    // ctx.closePath();
-    // ctx.fill();
-
-    // ctx.save();
-    // ctx.translate(WIDTH_2, HEIGHT_2);
+    plot(id, moonPoly, [160, 160, 150]);
 
     const fbox = bbox(f);
 
@@ -182,13 +173,16 @@ const start = async () => {
     const objs = q.query(search);
 
     let toDraw = [];
+
     for (let i = 0; i < objs.length; i++) {
       const o = objs[i];
       if (pointInPolygon(o.pos, f)) {
         toDraw.push([affineMul(o.pos, fromPlayerSpace), o]);
       }
     }
+
     toDraw.sort((a, b) => b[0][0] - a[0][0]);
+
     for (let i = 0; i < toDraw.length; i++) {
       const sp = toDraw[i][0];
       const o = toDraw[i][1];

@@ -236,17 +236,17 @@ export default async function buildWorld(bounds) {
     const l = (pr(roadL) - pr(0)) / roadL / 2 + 1;
     const rot = [1, 0];
     const z = 0;
-    q.insert({
-      pos: [0, p],
-      fill: [8, 8, 8],
-      model: [
-        [-l, -40, -1],
-        [-l, 40, -1],
-        [l, 40, -1],
-        [l, -40, -1],
-        [-l, -40, -1],
-      ],
-    });
+    // q.insert({
+    //   pos: [0, p],
+    //   fill: [8, 8, 8],
+    //   model: [
+    //     [-l, -40, -1],
+    //     [-l, 40, -1],
+    //     [l, 40, -1],
+    //     [l, -40, -1],
+    //     [-l, -40, -1],
+    //   ],
+    // });
     if (true) {
       q.insert({
         pos: [0, p],
