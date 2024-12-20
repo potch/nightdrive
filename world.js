@@ -1,4 +1,15 @@
-import { Quadtree, mul, proj, lerp } from "./geo.js";
+import {
+  Quadtree,
+  mul,
+  proj,
+  lerp,
+  norm,
+  scale,
+  plerp,
+  sub,
+  Bezier,
+  generatePath,
+} from "./geo.js";
 
 let lastBreath = Date.now();
 const breathe = (text) => {
@@ -9,12 +20,104 @@ const breathe = (text) => {
   }
 };
 
+const rotY =
+  (r) =>
+  ([x, y, z]) => {
+    const [rx, rz] = mul([x, z], r);
+    return [rx, y, rz];
+  };
+
 export default async function buildWorld(bounds) {
   const q = new Quadtree(bounds, {
     maxDepth: 64,
     capacity: 8,
     getPos: (o) => o.pos,
   });
+
+  // const height = 40;
+  // const width = 8;
+  // const pos = [0, 0];
+  // q.insert({
+  //   pos,
+  //   id: "trunk",
+  //   fill: [16, 8, 0],
+  //   model: [
+  //     [-2, 0, 0],
+  //     [2, 0, 0],
+  //     [2, height, 0],
+  //     [-2, height, 0],
+  //   ],
+  // });
+  // q.insert({
+  //   id: "leaf1",
+  //   pos,
+  //   fill: [0, 24, 12],
+  //   model: [
+  //     [-width, height / 2, 8],
+  //     [width, height / 2, 8],
+  //     [0, height * 1.5, 0],
+  //   ],
+  // });
+  // q.insert({
+  //   id: "leaf2",
+  //   pos,
+  //   fill: [0, 18, 12],
+  //   model: [
+  //     [-width, height / 2, -8],
+  //     [width, height / 2, -8],
+  //     [0, height * 1.5, 0],
+  //   ],
+  // });
+
+  // q.insert({
+  //   id: "red",
+  //   pos: [0, 0],
+  //   fill: [64, 0, 0],
+  //   model: [
+  //     [-4, 8, 4],
+  //     [0, 4, 4],
+  //     [4, 8, 4],
+  //     [0, 12, 4],
+  //   ],
+  // });
+
+  // q.insert({
+  //   id: "blue",
+  //   pos: [0, 4],
+  //   fill: [0, 0, 64],
+  //   model: [
+  //     [-4, 8, 0],
+  //     [0, 4, 0],
+  //     [4, 8, 0],
+  //     [0, 12, 0],
+  //   ],
+  // });
+
+  // q.insert({
+  //   id: "square",
+  //   pos: [0, 20],
+  //   fill: [64, 0, 0],
+  //   model: [
+  //     [-5, -5, 0],
+  //     [-5, 5, 0],
+  //     [5, 5, 0],
+  //     [5, -5, 0],
+  //   ],
+  // });
+
+  // //north
+  // q.insert({
+  //   id: "arrow",
+  //   pos: [0, 0],
+  //   fill: [64, 64, 64],
+  //   model: [
+  //     [-4, 0, 0],
+  //     [4, 0, 0],
+  //     [0, 0, -16],
+  //   ],
+  // });
+
+  // return q;
 
   await breathe("trees");
 
@@ -29,11 +132,10 @@ export default async function buildWorld(bounds) {
       tries < 10 &&
       (Math.abs(Math.hypot(...pos) - 2048) < 70 ||
         Math.abs(Math.hypot(...pos) - 4096) < 70 ||
-        Math.abs(pos[0]) < 60)
+        Math.abs(pos[0]) < 60 ||
+        Math.hypot(...pos) < 200)
     );
     if (tries >= 9) console.log("failed to place tree");
-    const lx = Math.random() * 4 - 2;
-    const lz = Math.random() * 4 - 2;
     const a = Math.random() * 6.28;
 
     const rot = [Math.cos(-a), Math.sin(-a)];
@@ -41,41 +143,32 @@ export default async function buildWorld(bounds) {
     const width = 8;
     q.insert({
       pos,
-      lx,
-      lz,
       fill: [16, 8, 0],
-      stroke: false,
       model: [
-        [-2, -2, 0],
-        [2, 2, 0],
-        [2, 2, height],
-        [-2, -2, height],
-      ].map(([x, y, z]) => [...mul([x, y], rot), z]),
+        [-2, 0, -2],
+        [2, 0, 2],
+        [2, height, 2],
+        [-2, height, -2],
+      ].map(rotY(rot)),
     });
     q.insert({
       pos,
-      lx,
-      lz,
       fill: [0, 24, 12],
-      stroke: false,
       model: [
-        [-width - 2, -width + 2, height / 2],
-        [width - 2, width + 2, height / 2],
-        [0, 0, height * 1.5],
-      ].map(([x, y, z]) => [...mul([x, y], rot), z]),
+        [-width - 2, height / 2, -width + 2],
+        [width - 2, height / 2, width + 2],
+        [0, height * 1.5, 0],
+      ].map(rotY(rot)),
     });
     q.insert({
       pos,
-      lx,
-      lz,
       fill: [0, 18, 12],
-      stroke: false,
 
       model: [
-        [-width + 2, -width - 2, height / 2],
-        [width + 2, width - 2, height / 2],
-        [0, 0, height * 1.5],
-      ].map(([x, y, z]) => [...mul([x, y], rot), z]),
+        [-width + 2, height / 2, -width - 2],
+        [width + 2, height / 2, width - 2],
+        [0, height * 1.5, 0],
+      ].map(rotY(rot)),
     });
     if (i % 5000 === 0) {
       await breathe("trees " + (((i / count) * 100) | 0));
@@ -94,8 +187,8 @@ export default async function buildWorld(bounds) {
   //     pos: [x, y],
   //     anim: (t) => lerp(z, 0, (t % speed) / speed),
   //     model: [
-  //       [0, 0, z],
-  //       [0 + Math.random(), 0 + Math.random(), z + Math.random()],
+  //       [0,  z,  0],
+  //       [0 + Math.random(),  z + Math.random(),  0 + Math.random()],
   //     ],
   //   });
   //   if (i % 50000 === 0) {
@@ -105,172 +198,135 @@ export default async function buildWorld(bounds) {
 
   await breathe("roads");
 
-  let roadRad = 2048;
-  let roadDash = 400;
-  let roadWidth = 40;
-  for (let i = 0; i < roadDash; i += 1) {
-    const a = (i / roadDash) * (Math.PI * 2);
-    if (i > 97 && i < 103) continue;
-    const rot = [Math.cos(-a), Math.sin(-a)];
-    const z = 0;
-    if (i % 2) {
-      q.insert({
-        pos: [roadRad * Math.cos(a), roadRad * Math.sin(a)],
-        fill: [100, 75, 0],
-        stroke: false,
-        model: [
-          [-5, 1, z],
-          [5, 1, z],
-          [5, -1, z],
-          [-5, -1, z],
-        ].map(([x, y, z]) => [...mul([x, y], rot), z]),
-      });
-    }
-    const il = (2 * Math.PI * (roadRad - roadWidth)) / roadDash / 2;
-    const ol = (2 * Math.PI * (roadRad + roadWidth)) / roadDash / 2;
+  const basicRoad = (s) => {
     q.insert({
-      pos: [
-        (roadRad - roadWidth) * Math.cos(a),
-        (roadRad - roadWidth) * Math.sin(a),
-      ],
-      fill: [20, 20, 20],
-      stroke: false,
+      pos: s.center,
+      fill: [100, 75, 0],
       model: [
-        [-il, 0, z],
-        [il, 0, z],
-        [il - 0.5, 0, z + 7],
-        [-il + 0.5, 0, z + 7],
-      ].map(([x, y, z]) => [...mul([x, y], rot), z]),
+        [5, 0, -1],
+        [5, 0, 1],
+        [-5, 0, 1],
+        [-5, 0, -1],
+      ].map(rotY(s.centerNorm)),
     });
+    let ll = Math.hypot(...sub(s.frontLeft, s.backLeft)) / 2;
     q.insert({
-      pos: [
-        (roadRad + roadWidth) * Math.cos(a),
-        (roadRad + roadWidth) * Math.sin(a),
-      ],
+      pos: s.centerLeft,
       fill: [64, 64, 64],
-      stroke: false,
       model: [
-        [-ol, -1, z],
-        [ol, -1, z],
-        [ol, 1, z],
-        [-ol, 1, z],
-      ].map(([x, y, z]) => [...mul([x, y], rot), z]),
+        [ll, 0, -1],
+        [ll, 0, 1],
+        [-ll, 0, 1],
+        [-ll, 0, -1],
+      ].map(rotY(s.centerNorm)),
     });
-  }
-
-  await breathe("roads");
-
-  roadRad = 4086;
-  roadDash = 800;
-  roadWidth = 40;
-  for (let i = 0; i < roadDash; i += 1) {
-    const a = (i / roadDash) * (Math.PI * 2);
-    if (i > 197 && i < 203) continue;
-    const rot = [Math.cos(-a), Math.sin(-a)];
-    const z = 0;
-    if (i % 2) {
-      q.insert({
-        pos: [roadRad * Math.cos(a), roadRad * Math.sin(a)],
-        fill: [100, 75, 0],
-        stroke: false,
-        model: [
-          [-5, 1, z],
-          [5, 1, z],
-          [5, -1, z],
-          [-5, -1, z],
-        ].map(([x, y, z]) => [...mul([x, y], rot), z]),
-      });
-    }
-    const il = (2 * Math.PI * (roadRad - roadWidth)) / roadDash / 2;
-    const ol = (2 * Math.PI * (roadRad + roadWidth)) / roadDash / 2;
+    let rl = Math.hypot(...sub(s.frontRight, s.backRight)) / 2;
     q.insert({
-      pos: [
-        (roadRad - roadWidth) * Math.cos(a),
-        (roadRad - roadWidth) * Math.sin(a),
-      ],
-      fill: [20, 20, 20],
-      stroke: false,
-      model: [
-        [-il, 0, z],
-        [il, 0, z],
-        [il - 0.5, 0, z + 7],
-        [-il + 0.5, 0, z + 7],
-      ].map(([x, y, z]) => [...mul([x, y], rot), z]),
-    });
-    q.insert({
-      pos: [
-        (roadRad + roadWidth) * Math.cos(a),
-        (roadRad + roadWidth) * Math.sin(a),
-      ],
+      pos: s.centerRight,
       fill: [64, 64, 64],
-      stroke: false,
       model: [
-        [-ol, -1, z],
-        [ol, -1, z],
-        [ol, 1, z],
-        [-ol, 1, z],
-      ].map(([x, y, z]) => [...mul([x, y], rot), z]),
+        [rl, 0, -1],
+        [rl, 0, 1],
+        [-rl, 0, 1],
+        [-rl, 0, -1],
+      ].map(rotY(s.centerNorm)),
     });
-  }
+  };
 
-  await breathe("roads");
+  const makeBasicRoad = (bez) => {
+    generatePath(bez, (bez.length / 40) | 0, 40).forEach(basicRoad);
+  };
 
-  const roadL = 200;
-  for (let i = 0; i < roadL; i++) {
-    const pr = (i) => proj(0, roadL, -50, 8192 - 60, i);
-    const p = pr(i);
-    if (p > 2048 - 80 && p < 2048 + 80) continue;
-    if (p > 4096 - 80 && p < 4096 + 80) continue;
-    const l = (pr(roadL) - pr(0)) / roadL / 2 + 1;
-    const rot = [1, 0];
-    const z = 0;
-    // q.insert({
-    //   pos: [0, p],
-    //   fill: [8, 8, 8],
-    //   model: [
-    //     [-l, -40, -1],
-    //     [-l, 40, -1],
-    //     [l, 40, -1],
-    //     [l, -40, -1],
-    //     [-l, -40, -1],
-    //   ],
-    // });
-    if (true) {
-      q.insert({
-        pos: [0, p],
-        fill: [100, 75, 0],
-        stroke: false,
-        model: [
-          [-5, 1, z],
-          [5, 1, z],
-          [5, -1, z],
-          [-5, -1, z],
-        ].map(([x, y, z]) => [...mul([x, y], rot), z]),
-      });
-    }
-    q.insert({
-      pos: [-40, p],
-      fill: [64, 64, 64],
-      stroke: false,
-      model: [
-        [-l, -1, z],
-        [l, -1, z],
-        [l, 1, z],
-        [-l, 1, z],
-      ].map(([x, y, z]) => [...mul([x, y], rot), z]),
-    });
-    q.insert({
-      pos: [40, p],
-      fill: [64, 64, 64],
-      stroke: false,
-      model: [
-        [-l, -1, z],
-        [l, -1, z],
-        [l, 1, z],
-        [-l, 1, z],
-      ].map(([x, y, z]) => [...mul([x, y], rot), z]),
-    });
-  }
+  // cross
+  makeBasicRoad(new Bezier([0, 40], [0, 2048], [0, 6144], [0, 7960]));
+  makeBasicRoad(new Bezier([0, -40], [0, -2048], [0, -6144], [0, -7960]));
+  makeBasicRoad(new Bezier([40, 0], [2048, 0], [6144, 0], [7960, 0]));
+  makeBasicRoad(new Bezier([-40, 0], [-2048, 0], [-6144, 0], [-7960, 0]));
+
+  // ring
+  makeBasicRoad(new Bezier([40, 8000], [8000, 8000], [8000, 8000], [8000, 40]));
+  makeBasicRoad(
+    new Bezier([8000, -40], [8000, -8000], [8000, -8000], [40, -8000])
+  );
+  makeBasicRoad(
+    new Bezier([-40, -8000], [-8000, -8000], [-8000, -8000], [-8000, -40])
+  );
+  makeBasicRoad(
+    new Bezier([-8000, 40], [-8000, 8000], [-8000, 8000], [-40, 8000])
+  );
+
+  const silofill = [20, 20, 20];
+  const silopos = [120, 120];
+  const silowidth = 50;
+  const siloheight = 30;
+  const eave = 50 - 54 * (20 / silowidth);
+  q.insert({
+    pos: silopos,
+    fill: silofill,
+    model: [
+      [-silowidth, 0, -silowidth],
+      [-silowidth, 0, silowidth],
+      [-silowidth, siloheight, silowidth],
+      [-silowidth, siloheight, -silowidth],
+    ],
+  });
+
+  q.insert({
+    pos: silopos,
+    fill: silofill,
+    model: [
+      [silowidth, 0, -silowidth],
+      [silowidth, 0, silowidth],
+      [silowidth, siloheight, silowidth],
+      [silowidth, siloheight, -silowidth],
+    ],
+  });
+
+  q.insert({
+    pos: silopos,
+    fill: silofill,
+    model: [
+      [-silowidth, 0, -silowidth],
+      [silowidth, 0, -silowidth],
+      [silowidth, siloheight, -silowidth],
+      [0, siloheight + 20, -silowidth],
+
+      [-silowidth, siloheight, -silowidth],
+    ],
+  });
+
+  q.insert({
+    pos: silopos,
+    fill: silofill,
+    model: [
+      [-silowidth, 0, silowidth],
+      [silowidth, 0, silowidth],
+      [silowidth, siloheight, silowidth],
+      [0, siloheight + 20, silowidth],
+      [-silowidth, siloheight, silowidth],
+    ],
+  });
+
+  q.insert({
+    pos: silopos,
+    fill: [10, 10, 10],
+    model: [
+      [-silowidth - 4, eave, silowidth + 4],
+      [-silowidth - 4, eave, -silowidth - 4],
+      [0, siloheight + 20, -silowidth - 4],
+      [0, siloheight + 20, silowidth + 4],
+    ],
+  });
+  q.insert({
+    pos: silopos,
+    fill: [10, 10, 10],
+    model: [
+      [silowidth + 4, eave, silowidth + 4],
+      [silowidth + 4, eave, -silowidth - 4],
+      [0, siloheight + 20, -silowidth - 4],
+      [0, siloheight + 20, silowidth + 4],
+    ],
+  });
 
   return q;
 }

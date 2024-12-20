@@ -14,11 +14,17 @@ import {
   mul,
   norm,
   sub,
+  Bezier,
+  generatePath,
 } from "./geo.js";
 import { bstNode, bstToArray, bstInsert } from "./bstree.js";
 import buildWorld from "./world.js";
 
-const bounds = new Rect([-8192, -8192], [16384, 16384]);
+const WORLD_SIZE = 16384 * 2;
+const bounds = new Rect(
+  [-WORLD_SIZE / 2, -WORLD_SIZE / 2],
+  [WORLD_SIZE, WORLD_SIZE]
+);
 let debug;
 
 let playerPos = [-25, 0];
@@ -38,7 +44,7 @@ const ASPECT = WIDTH / HEIGHT;
 const WIDTH_2 = WIDTH / 2;
 const HEIGHT_2 = HEIGHT / 2;
 const perspective = 30;
-const focal = 1024;
+const focal = 1600;
 const focalNear = 0;
 const fovW = 45;
 const fovH = fovW / ASPECT;
@@ -47,14 +53,14 @@ const overscan = 1.5;
 
 let maxScale = 0;
 const toScreenSpace = ([x, y, z]) => {
-  if (y < -10) y = -10;
-  let trueY = Math.max(focalNear + 1, y - focalNear);
-  let scale = perspective / (perspective + trueY);
+  if (z < -10) z = -10;
+  let trueZ = Math.max(focalNear + 1, z - focalNear);
+  let scale = perspective / (perspective + trueZ);
   if (Math.abs(scale) > Math.abs(maxScale)) {
     maxScale = scale;
   }
   if (scale > 10) {
-    console.log(x, y, z, focalNear, perspective, trueY, scale);
+    console.log(x, y, z, focalNear, perspective, trueZ, scale);
     throw "oh no";
   }
   return [
@@ -64,7 +70,7 @@ const toScreenSpace = ([x, y, z]) => {
       fovH,
       HEIGHT * overscan,
       -HEIGHT * overscan,
-      (z - camHeight) * scale
+      (y - camHeight) * scale
     ),
   ];
 };
@@ -90,6 +96,9 @@ const lowbeams = [
   [50, 0],
 ];
 
+const worldZ = ([x, y]) => 25 * (Math.cos(x / 500) * Math.sin(y / 500));
+const tab = (n) => n.toFixed(2).padStart(8, " ");
+
 const start = async () => {
   const canvas = document.createElement("canvas");
   Object.assign(canvas, { width: WIDTH, height: HEIGHT });
@@ -100,6 +109,7 @@ const start = async () => {
 
   let stime = Date.now();
   const q = await buildWorld(bounds);
+  console.log(q);
   console.log("built world in", Date.now() - stime, "ms");
 
   const id = new ImageData(WIDTH, HEIGHT);
@@ -144,6 +154,18 @@ const start = async () => {
     ];
     playerPos = add(playerPos, scale(facing, fwd));
 
+    const tiltA = 0;
+    // const tiltA = Math.atan2(
+    //   worldZ(sub(playerPos, facing)) - worldZ(add(playerPos, facing)),
+    //   2
+    // );
+    const tilt = [Math.cos(tiltA), Math.sin(tiltA)];
+
+    // playerPos = [Math.cos(t) * 100, Math.sin(t) * 100];
+    // facing = mul(norm(playerPos), [-1, 0]);
+    // playerPos = [-100, 0];
+    // facing = [1, 0];
+
     // drawing
     const toPlayerSpace = affine(facing, playerPos);
     const fromPlayerSpace = invertAffine(toPlayerSpace);
@@ -185,13 +207,14 @@ const start = async () => {
             for (let i = 0; i < o.model.length; i++) {
               center = add(center, [
                 o.model[i][0] / o.model.length,
-                o.model[i][1] / o.model.length,
+                o.model[i][2] / o.model.length,
               ]);
             }
             o.center = center;
           }
         }
-        const drawP = affineMul(sub(o.pos, center), fromPlayerSpace);
+        const drawP = affineMul(add(o.pos, center), fromPlayerSpace);
+
         const p = affineMul(o.pos, fromPlayerSpace);
         if (toDraw) {
           bstInsert(toDraw, -drawP[0], [p, o]);
@@ -203,32 +226,35 @@ const start = async () => {
 
     toDraw = bstToArray(toDraw);
 
+    // const playerZ = worldZ(playerPos);
+
     for (let i = 0; i < toDraw.length; i++) {
       const sp = toDraw[i][0];
       const o = toDraw[i][1];
       const x = sp[1];
       const z = sp[0];
       const d = Math.hypot(x, z);
+      const cd = Math.hypot(x + o.center[1], z + o.center[0]);
       if (d > focal) continue;
 
-      const shape = o.model.map((p) => {
-        const sp = add(mul(p, facing), [x, z]);
-        return toScreenSpace([sp[0], sp[1], o.anim ? o.anim(t) : p[2]]);
+      o.shape = o.model.map((p) => {
+        const relP = affineMul(add(o.pos, [p[0], p[2]]), fromPlayerSpace);
+        return toScreenSpace([relP[1], p[1], relP[0]]);
       });
 
       let a = clamp(
         0,
         1,
         z < 10
-          ? proj(focalNear, -10, 0, 1, d)
-          : proj(focal * 0.5, focal, 1, 0, d)
+          ? proj(focalNear, -10, 0, 1, cd)
+          : proj(focal * 0.5, focal, 1, 0, cd)
       );
 
       let fill = o.fill;
       const headlight = clamp(
         0,
         1,
-        proj(fovW * 0.2, fovW * 0.6, 1, 0, Math.abs(x) - 0.4 * z)
+        proj(fovW * 0.2, fovW * 0.4, 1, 0, Math.abs(x) - 0.3 * z)
       );
 
       if (fill) {
@@ -237,14 +263,63 @@ const start = async () => {
           (fill[1] * (1 + 1.8 * headlight) * a) | 0,
           (fill[2] * (1 + 1.25 * headlight) * a) | 0,
         ];
-        plot(id, shape, fill);
+        plot(id, o.shape, fill);
       }
     }
 
     ctx.putImageData(id, 0, 0);
 
+    // DIAGNOSTICS
+
+    const showMesh = false;
+    if (showMesh) {
+      ctx.save();
+      ctx.translate(WIDTH_2, HEIGHT_2);
+      ctx.strokeStyle = "#fff2";
+      toDraw.forEach(([sp, o]) => {
+        ctx.beginPath();
+        o.shape?.forEach((p) => ctx.lineTo(...p));
+        ctx.closePath();
+        ctx.stroke();
+      });
+    }
+
+    // ctx.strokeStyle = "#f004";
+    // ctx.beginPath();
+    // frust
+    //   .map((f) => toScreenSpace([f[1], 0, f[0]]))
+    //   .forEach((p) => ctx.lineTo(...p));
+    // ctx.closePath();
+    // ctx.stroke();
+
+    ctx.restore();
+
+    // debug.innerText = "";
+    // toDraw.forEach(([sp, o], i) => {
+    //   const [z, x] = sp;
+    //   ctx.fillStyle = "#f00";
+    //   ctx.fillRect(...o.pos, 2, 2);
+    //   ctx.fillStyle = "#00f";
+    //   ctx.fillRect(...sp, 2, 2);
+    //   debug.innerText += `obj ${o.id}: \t ${sp.map(tab).join(", ")}\n`;
+    //   debug.innerText += `${o.model
+    //     .map((p) => p.map(tab).join(", "))
+    //     .join("\n")}\n`;
+
+    //   // debug.innerText +=
+    //   //   "pr \t" + model.map((p) => p.map(tab).join(", ")).join("\n") + "\n\n";
+    // });
+    // ctx.fillStyle = "#fff";
+    // ctx.fillRect(...playerPos, 2, 2);
+    // ctx.beginPath();
+    // f.forEach((p) => ctx.lineTo(...p));
+    // ctx.closePath();
+    // ctx.stroke();
+    ctx.restore();
+
     requestAnimationFrame(frame);
     avg = avg * 0.999 + (Date.now() - now) * 0.001;
+
     debug.innerText =
       Date.now() -
       now +
@@ -275,32 +350,21 @@ const start = async () => {
     if (top > HEIGHT_2) return;
     const data = id.data;
 
-    // for (let i = 0; i < pts.length; i++) {
-    //   const px = Math.round(pts[i][0] + WIDTH_2);
-    //   const py = Math.round(pts[i][1] + HEIGHT_2);
-    //   const pidx = (py * WIDTH + px) * 4;
-
-    //   if (px < 0 || py < 0 || px >= WIDTH || py >= HEIGHT) continue;
-
-    //   data[pidx] = r;
-    //   data[pidx + 1] = g;
-    //   data[pidx + 2] = b;
-    //   data[pidx + 3] = 255;
-    // }
-    // // return;
-
-    for (let y = top; y <= bottom; y += 1) {
-      const py = y + HEIGHT_2;
+    for (let y = top; y <= bottom; y += 0.25) {
+      const py = (y + HEIGHT_2) | 0;
       if (py < 0 || py >= HEIGHT) continue;
       for (let x = left; x <= right; x += 1) {
         const px = x + WIDTH_2;
         const idx = py * WIDTH + px;
         if (px < 0 || px >= WIDTH) continue;
         if (pointInPolygon([x, y], pts)) {
+          const dx = 100 - Math.abs(x);
+          const d = (dx * dx + y * y) / WIDTH + 1;
+          const l = 1 / d + 1;
           const pidx = idx * 4;
-          data[pidx] = r;
-          data[pidx + 1] = g;
-          data[pidx + 2] = b;
+          data[pidx] = r * l;
+          data[pidx + 1] = g * l;
+          data[pidx + 2] = b * l;
           data[pidx + 3] = 255;
         }
       }
