@@ -231,6 +231,11 @@ export default async function buildWorld(bounds) {
         [-rl, 0, -1],
       ].map(rotY(s.centerNorm)),
     });
+    // q.insert({
+    //   pos: s.center,
+    //   fill: [10, 10, 10],
+    //   model: s.poly.map(([x, z]) => [x, -0.1, z]),
+    // });
   };
 
   const makeBasicRoad = (bez) => {

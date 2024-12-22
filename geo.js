@@ -135,35 +135,42 @@ export const generatePath = (bez, segments, width) => {
     const centerT = bez.evenT(t);
     const center = bez.pos(centerT);
     const centerVel = bez.derivative(centerT);
-    const centerNorm = scale(norm(centerVel), width);
-    const centerLeft = add(center, mul(centerNorm, [0, -1]));
-    const centerRight = add(center, mul(centerNorm, [0, 1]));
+    const centerNorm = norm(centerVel);
+    const centerSpan = scale(centerNorm, width);
+    const centerLeft = add(center, mul(centerSpan, [0, -1]));
+    const centerRight = add(center, mul(centerSpan, [0, 1]));
 
     const backT = bez.evenT(t - step2);
     const back = bez.pos(backT);
     const backVel = bez.derivative(backT);
-    const backNorm = scale(norm(backVel), width);
-    const backLeft = add(back, mul(backNorm, [0, -1]));
-    const backRight = add(back, mul(backNorm, [0, 1]));
+    const backSpan = scale(norm(backVel), width);
+    const backLeft = add(back, mul(backSpan, [0, -1]));
+    const backRight = add(back, mul(backSpan, [0, 1]));
 
     const frontT = bez.evenT(t + step2);
     const front = bez.pos(frontT);
     const frontVel = bez.derivative(frontT);
-    const frontNorm = scale(norm(frontVel), width);
-    const frontLeft = add(front, mul(frontNorm, [0, -1]));
-    const frontRight = add(front, mul(frontNorm, [0, 1]));
+    const frontSpan = scale(norm(frontVel), width);
+    const frontLeft = add(front, mul(frontSpan, [0, -1]));
+    const frontRight = add(front, mul(frontSpan, [0, 1]));
 
     seg.push({
       back,
       backLeft,
       backRight,
       center,
-      centerNorm: norm(centerVel),
+      centerNorm,
       centerLeft,
       centerRight,
       front,
       frontLeft,
       frontRight,
+      poly: [
+        sub(backLeft, center),
+        sub(backRight, center),
+        sub(frontRight, center),
+        sub(frontLeft, center),
+      ],
     });
   }
   return seg;

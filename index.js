@@ -187,7 +187,12 @@ const start = async () => {
     );
     const moonPoly = moon.map((p) => add(p, [moonX, -HEIGHT * 0.15]));
 
-    plot(id, moonPoly, [160, 160, 150]);
+    plot(id, moonPoly, [
+      [160, 160, 150],
+      [160, 160, 150],
+      [160, 160, 150],
+      [160, 160, 150].map((n) => n / 2),
+    ]);
 
     const fbox = bbox(f);
 
@@ -212,14 +217,20 @@ const start = async () => {
             }
             o.center = center;
           }
+        } else {
+          console.log(o);
+          throw "what";
         }
-        const drawP = affineMul(add(o.pos, center), fromPlayerSpace);
+        const drawP = affineMul(
+          add(o.pos, [center[0], center[1]]),
+          fromPlayerSpace
+        );
 
         const p = affineMul(o.pos, fromPlayerSpace);
         if (toDraw) {
-          bstInsert(toDraw, -drawP[0], [p, o]);
+          bstInsert(toDraw, -drawP[0], { pos: p, obj: o });
         } else {
-          toDraw = bstNode(-drawP[0], [p, o]);
+          toDraw = bstNode(-drawP[0], { pos: p, obj: o });
         }
       }
     }
@@ -229,8 +240,9 @@ const start = async () => {
     // const playerZ = worldZ(playerPos);
 
     for (let i = 0; i < toDraw.length; i++) {
-      const sp = toDraw[i][0];
-      const o = toDraw[i][1];
+      const td = toDraw[i];
+      const sp = td.pos;
+      const o = td.obj;
       const x = sp[1];
       const z = sp[0];
       const d = Math.hypot(x, z);
@@ -263,7 +275,7 @@ const start = async () => {
           (fill[1] * (1 + 1.8 * headlight) * a) | 0,
           (fill[2] * (1 + 1.25 * headlight) * a) | 0,
         ];
-        plot(id, o.shape, fill);
+        plot(id, o.shape, [fill, fill, fill, fill.map((n) => n / 2)]);
       }
     }
 
@@ -350,8 +362,19 @@ const start = async () => {
     if (top > HEIGHT_2) return;
     const data = id.data;
 
-    for (let y = top; y <= bottom; y += 0.25) {
+    for (let y = top; y <= bottom; y += 1) {
       const py = (y + HEIGHT_2) | 0;
+      const yt = (y - top) / (bottom - top);
+      const fillLeft = [
+        lerp(fill[0][0], fill[2][0], yt),
+        lerp(fill[0][1], fill[2][1], yt),
+        lerp(fill[0][2], fill[2][2], yt),
+      ];
+      const fillRight = [
+        lerp(fill[1][0], fill[3][0], yt),
+        lerp(fill[1][1], fill[3][1], yt),
+        lerp(fill[1][2], fill[3][2], yt),
+      ];
       if (py < 0 || py >= HEIGHT) continue;
       for (let x = left; x <= right; x += 1) {
         const px = x + WIDTH_2;
@@ -360,11 +383,17 @@ const start = async () => {
         if (pointInPolygon([x, y], pts)) {
           const dx = 100 - Math.abs(x);
           const d = (dx * dx + y * y) / WIDTH + 1;
-          const l = 1 / d + 1;
+          const l = 0.5 / d + 0.8;
           const pidx = idx * 4;
-          data[pidx] = r * l;
-          data[pidx + 1] = g * l;
-          data[pidx + 2] = b * l;
+          const xt = (x - left) / (right - left);
+          const fill = [
+            lerp(fillLeft[0], fillRight[0], xt),
+            lerp(fillLeft[1], fillRight[1], xt),
+            lerp(fillLeft[2], fillRight[2], xt),
+          ];
+          data[pidx] = fill[0] * l;
+          data[pidx + 1] = fill[1] * l;
+          data[pidx + 2] = fill[2] * l;
           data[pidx + 3] = 255;
         }
       }
