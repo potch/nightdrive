@@ -139,7 +139,7 @@ export default async function buildWorld(bounds) {
     const a = Math.random() * 6.28;
 
     const rot = [Math.cos(-a), Math.sin(-a)];
-    const height = Math.random() * 40 + 20;
+    const height = Math.random() * 30 + 20;
     const width = 8;
     q.insert({
       pos,
